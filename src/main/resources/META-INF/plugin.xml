@@ -1,0 +1,25 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>org.rogmann.llm.PluginLlm01</id>
+    <name>PluginLlm01</name>
+    <vendor email="www@rogmann.org" url="http://www.rogmann.org">rogmann.org</vendor>
+
+    <description><![CDATA[
+    Calls a local LLM, <em>this is a simple plugin</em>.
+  ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="LlmPlugin"
+                    anchor="bottom"
+                    factoryClass="org.rogmann.llm.pluginllm01.LlmToolWindowFactory"/>
+    </extensions>
+
+    <actions>
+    </actions>
+</idea-plugin>
