@@ -11,7 +11,7 @@ public class LlmToolWindowFactory implements ToolWindowFactory {
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         var mainForm = new MainForm();
         var contentManager = toolWindow.getContentManager();
-        var content = contentManager.getFactory().createContent(mainForm.getMainPanel(), "Local-LLM", true);
+        var content = contentManager.getFactory().createContent(mainForm.getMainPanel(), "Local-LLM (0.2.3)", true);
         contentManager.addContent(content);
     }
 }

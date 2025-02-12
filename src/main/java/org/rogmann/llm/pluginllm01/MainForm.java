@@ -16,6 +16,9 @@ import java.awt.event.ActionListener;
 import java.util.function.Consumer;
 
 public class MainForm extends JFrame {
+
+    private final boolean legayProtocol = Boolean.getBoolean("pluginllm01.legacyProtocol");
+
     private JPanel panel;
     private JLabel lblType;
     private JComboBox<LlmTaskType> comboboxTyp;
@@ -73,9 +76,15 @@ public class MainForm extends JFrame {
                         });
                     });
                 };
-                LlmBackgroundable task = new LlmBackgroundable(project, "LLM-Execution", llmTask,
-                        tokenConsumer, statusConsumer, resultConsumer);
-                task.setCancelText("Stop LLM Execution").queue();
+                if (legayProtocol) {
+                    LlmBackgroundable task = new LlmBackgroundable(project, "LLM-Execution", llmTask,
+                            tokenConsumer, statusConsumer, resultConsumer);
+                    task.setCancelText("Stop LLM Execution").queue();
+                } else {
+                    LlmBackgroundableHttp task = new LlmBackgroundableHttp(project, "LLM-Execution", llmTask,
+                            tokenConsumer, statusConsumer, resultConsumer);
+                    task.setCancelText("Stop LLM Execution").queue();
+                }
             }
         });
         btnRange.addActionListener(new ActionListener() {
