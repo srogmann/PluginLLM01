@@ -161,7 +161,7 @@ class LightweightJsonHandler {
             else {
                 var sb = new StringBuilder();
                 while (true) {
-                    if (c == '}' || c == ',') {
+                    if (c == ']' || c == ',') {
                         break;
                     }
                     if ((c >= 'a' && c <= 'z') || (c == 'E') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '+') {
@@ -175,6 +175,10 @@ class LightweightJsonHandler {
                     throw new IllegalArgumentException("Missing value");
                 }
                 value = parseJsonValue(sb.toString());
+                if (c == ']') {
+                    list.add(value);
+                    break;
+                }
             }
             list.add(value);
             needComma = (c != ',');
