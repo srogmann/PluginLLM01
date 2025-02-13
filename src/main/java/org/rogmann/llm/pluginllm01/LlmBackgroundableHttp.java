@@ -56,7 +56,7 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
         this.resultConsumer = resultConsumer;
     }
 
-    @Override
+   @Override
     public void run(@NotNull ProgressIndicator indicator) {
         try {
             String sUrl = switch (llmTask.type()) {
@@ -84,6 +84,10 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
                     msg.put("content", systemPrompt);
                     messages.add(msg);
                 }
+                Map<String, Object> msg = new HashMap<>();
+                msg.put("role", "user");
+                msg.put("content", llmTask.prompt());
+                messages.add(msg);
             }
             else if (llmTask.type() == LlmTaskType.FILL_IN_MIDDLE) {
                 request.put("input_prefix", llmTask.fimBegin());
