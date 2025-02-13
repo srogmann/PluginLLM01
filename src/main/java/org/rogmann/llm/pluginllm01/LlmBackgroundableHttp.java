@@ -26,7 +26,9 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
     private static final Logger LOGGER = Logger.getInstance(LlmBackgroundableHttp.class);
 
     /** URL of chat/completions-endpoint */
-    private final String sUrl = System.getProperty("pluginllm01.url", "http://localhost:7681/v1/chat/completions");
+    private final String sUrlChatCompletion = System.getProperty("pluginllm01.url", "http://localhost:7681/v1/chat/completions");
+    /** URL of infill-endpoint */
+    private final String sUrlInfill = System.getProperty("pluginllm01.url", "http://localhost:7681/infill");
 
     /** optional api-key */
     private final String sApiKey = System.getProperty("pluginllm01.key");
@@ -57,6 +59,10 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
     @Override
     public void run(@NotNull ProgressIndicator indicator) {
         try {
+            String sUrl = switch (llmTask.type()) {
+                case PROMPT -> sUrlChatCompletion;
+                case FILL_IN_MIDDLE -> sUrlInfill;
+            };
             LOGGER.info("Connect to llm-server: " + sUrl);
             URL url = new URL(sUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -67,29 +73,25 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
             }
 
             Map<String, Object> request = new HashMap<>();
-            List<Object> messages = new ArrayList<>();
-            request.put("stream", true);
-            request.put("messages", messages);
-            String systemPrompt = llmTask.systemPrompt();
-            if (systemPrompt != null && !systemPrompt.isEmpty()) {
-                Map<String, Object> msg = new HashMap<>();
-                msg.put("role", "system");
-                msg.put("content", systemPrompt);
-                messages.add(msg);
-            }
             if (llmTask.type() == LlmTaskType.PROMPT) {
-                Map<String, Object> msg = new HashMap<>();
-                msg.put("role", "user");
-                msg.put("content", llmTask.prompt());
-                messages.add(msg);
+                List<Object> messages = new ArrayList<>();
+                request.put("stream", true);
+                request.put("messages", messages);
+                String systemPrompt = llmTask.systemPrompt();
+                if (systemPrompt != null && !systemPrompt.isEmpty()) {
+                    Map<String, Object> msg = new HashMap<>();
+                    msg.put("role", "system");
+                    msg.put("content", systemPrompt);
+                    messages.add(msg);
+                }
             }
             else if (llmTask.type() == LlmTaskType.FILL_IN_MIDDLE) {
-                // TODO FIM-request
-                Map<String, Object> msg = new HashMap<>();
-                msg.put("role", "user");
-                msg.put("content", String.format("Fill-in-the-middle\n\nbefore: %s\n\nend: %s\n",
-                        llmTask.fimBegin(), llmTask.fimEnd()));
-                messages.add(msg);
+                request.put("input_prefix", llmTask.fimBegin());
+                request.put("input_suffix", llmTask.fimEnd());
+                if (llmTask.prompt() != null && !llmTask.prompt().isEmpty()) {
+                    request.put("prompt", llmTask.prompt());
+                }
+                request.put("stream", true);
             }
             else {
                 LOGGER.error("Unexpected llm-task type " + llmTask.type());
@@ -103,7 +105,9 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
             conn.setDoInput(true);
 
             try (OutputStream os = conn.getOutputStream()) {
-                os.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                String jsonRequest = sb.toString();
+                System.out.println("JSON-Request: " + jsonRequest);
+                os.write(jsonRequest.getBytes(StandardCharsets.UTF_8));
             }
 
             int rc = conn.getResponseCode();
@@ -146,14 +150,34 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
                         LightweightJsonHandler.readChar(reader, true, '{');
                         response = LightweightJsonHandler.parseJsonDict(reader);
                     }
-                    List<Map<String, Object>> choices = LightweightJsonHandler.getJsonArrayDicts(response, "choices");
-                    if (choices == null || choices.isEmpty()) {
-                        LOGGER.error("Response without choices: " + json);
-                        continue;
+                    String content = null;
+                    if (llmTask.type() == LlmTaskType.PROMPT) {
+                        List<Map<String, Object>> choices = LightweightJsonHandler.getJsonArrayDicts(response, "choices");
+                        if (choices == null || choices.isEmpty()) {
+                            LOGGER.error("Response without choices: " + json);
+                            continue;
+                        }
+                        Map<String, Object> choice = choices.get(0);
+                        Map<String, Object> delta = LightweightJsonHandler.getJsonValue(choice, "delta", Map.class);
+                        content = LightweightJsonHandler.getJsonValue(delta, "content", String.class);
                     }
-                    Map<String, Object> choice = choices.get(0);
-                    Map<String, Object> delta = LightweightJsonHandler.getJsonValue(choice, "delta", Map.class);
-                    String content = LightweightJsonHandler.getJsonValue(delta, "content", String.class);
+                    else if (llmTask.type() == LlmTaskType.FILL_IN_MIDDLE) {
+                        // {"index":0,"content":"Hello","tokens":[9707],"stop":false,"id_slot":-1,"tokens_predicted":6,"tokens_evaluated":23}
+                        // ...
+                        content = LightweightJsonHandler.getJsonValue(response, "content", String.class);
+                        List<Object> tokens = LightweightJsonHandler.getJsonArray(response, "tokens");
+                        if ("".equals(content) && tokens != null && !tokens.isEmpty()
+                                && Integer.valueOf(151644).equals(tokens.get(0))) {
+                            // Workaround Qwen2.5-Coder and llama.cpp (2025-02): <|im_start|> instead of STOP.
+                            LOGGER.warn("break because of <|im_start|>: " + response);
+                            break;
+                        }
+                        Boolean stop = LightweightJsonHandler.getJsonValue(response, "stop", Boolean.class);
+                        if (Boolean.TRUE.equals(stop)) {
+                            // {"index":0,"content":"","tokens":[],"id_slot":0,"stop":true,"model":"gpt-3.5-turbo","tokens_predicted":216,"tokens_evaluated":23,"generation_settings":{"n_predict":-1,"seed":4294967295,"temperature":0.800000011920929,"dynatemp_range":0.0,"dynatemp_exponent":1.0,"top_k":40,"top_p":0.9499[...]
+                            break;
+                        }
+                    }
                     if (content != null) {
                         responseStream.accept(content);
                         sbResponse.append(content);

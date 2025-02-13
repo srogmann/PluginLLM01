@@ -124,16 +124,22 @@ public class MainForm extends JFrame {
                 }
                 int offsetInRange = offsetCaret - lastRange.startOffset;
                 if (offsetInRange > lastRange.range().length()) {
-                    throw new IllegalStateException(String.format("Caret-offse %d not in previous range [%d, %d]",
+                    throw new IllegalStateException(String.format("Caret-offset %d not in previous range [%d, %d]",
                             offsetCaret, lastRange.startOffset, lastRange.endOffset));
                 }
                 String fimBegin = lastRange.range.substring(0, offsetInRange);
                 String fimEnd = lastRange.range.substring(offsetInRange);
+                String prompt = null;
                 if (promptTemplate.contains("[FIM]")) {
                     fimBegin = promptTemplate.replace("[FIM]", fimBegin);
+                } else {
+                    String promptSuggestion = promptTemplate.replace("[Range]", "").trim();
+                    if (!promptSuggestion.isEmpty()) {
+                        prompt = promptSuggestion;
+                    }
                 }
                 yield  new LlmTask(llmTaskType,
-                        systemPrompt, "", fimBegin, fimEnd);
+                        systemPrompt, prompt, fimBegin, fimEnd);
             }
         };
     }
