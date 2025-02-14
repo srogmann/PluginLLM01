@@ -170,6 +170,9 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
                         // ...
                         content = LightweightJsonHandler.getJsonValue(response, "content", String.class);
                         List<Object> tokens = LightweightJsonHandler.getJsonArray(response, "tokens");
+                        if ("".equals(content) && (tokens == null || tokens.isEmpty())) {
+                            break;
+                        }
                         if ("".equals(content) && tokens != null && !tokens.isEmpty()
                                 && Integer.valueOf(151644).equals(tokens.get(0))) {
                             // Workaround Qwen2.5-Coder and llama.cpp (2025-02): <|im_start|> instead of STOP.
