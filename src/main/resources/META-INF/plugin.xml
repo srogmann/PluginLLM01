@@ -21,5 +21,8 @@
     </extensions>
 
     <actions>
+        <action id="org.rogmann.llm.copyAsMarkdown" class="org.rogmann.llm.pluginllm01.CopyAsMarkdownAction" text="Copy Classes as Markdown">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>
