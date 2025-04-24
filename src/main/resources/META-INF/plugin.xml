@@ -18,6 +18,14 @@
         <toolWindow id="LlmPlugin"
                     anchor="bottom"
                     factoryClass="org.rogmann.llm.pluginllm01.LlmToolWindowFactory"/>
+
+        <!-- Register the settings configuration -->
+        <applicationConfigurable
+                parentId="tools"
+                priority="100"
+                instance="org.rogmann.llm.pluginllm01.LlmSettingsConfigurable"
+                displayName="LLM-Plugin Einstellungen"/>
+
     </extensions>
 
     <actions>
@@ -25,4 +33,5 @@
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
     </actions>
+
 </idea-plugin>

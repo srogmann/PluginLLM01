@@ -1,5 +1,6 @@
 package org.rogmann.llm.pluginllm01;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -25,10 +26,13 @@ public class LlmBackgroundableHttp extends Task.Backgroundable {
     /** logger */
     private static final Logger LOGGER = Logger.getInstance(LlmBackgroundableHttp.class);
 
+    /** Out application settings */
+    private final LlmSettings llmSettings = ApplicationManager.getApplication().getService(LlmSettings.class);
+
     /** URL of chat/completions-endpoint */
-    private final String sUrlChatCompletion = System.getProperty("pluginllm01.url", "http://localhost:7681/v1/chat/completions");
+    private final String sUrlChatCompletion = llmSettings.getServerUrl() + "v1/chat/completions";
     /** URL of infill-endpoint */
-    private final String sUrlInfill = System.getProperty("pluginllm01.url", "http://localhost:7681/infill");
+    private final String sUrlInfill = llmSettings.getServerUrl() + "infill";
 
     /** optional api-key */
     private final String sApiKey = System.getProperty("pluginllm01.key");

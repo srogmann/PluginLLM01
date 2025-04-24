@@ -42,10 +42,11 @@ public class MainForm extends JFrame {
     public MainForm() {
         comboboxTyp.setModel(new DefaultComboBoxModel<>(LlmTaskType.values()));
         comboboxTyp.getModel().setSelectedItem(LlmTaskType.PROMPT);
-        txtPrompt.setText("""
-                Explain the java code in one concise line (to be used in a comment).
 
-                [Range]""");
+        // Standard-Prompt aus den Einstellungen laden
+        final LlmSettings llmSettings = ApplicationManager.getApplication().getService(LlmSettings.class);
+        txtPrompt.setText(llmSettings.getDefaultPrompt());
+
         btnExecute.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ev) {
