@@ -37,8 +37,8 @@ public class TextToPdfMain {
      */
     public static void main(String[] args) {
         int fontSize = 8;
-        String inputPath = null;
-        String outputPath = null;
+        String inputPath;
+        String outputPath;
 
         // Parse command-line arguments
         if (args.length == 2) {
@@ -61,8 +61,8 @@ public class TextToPdfMain {
         // Read input text lines
         List<String> lines = new ArrayList<>();
         try (InputStream fis = new FileInputStream(inputPath);
-                InputStreamReader isr = new InputStreamReader(fis, "UTF-8");
-                BufferedReader br = new BufferedReader(isr)) {
+             InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+             BufferedReader br = new BufferedReader(isr)) {
             while (true) {
                 String line = br.readLine();
                 if (line == null) {
@@ -100,21 +100,23 @@ public class TextToPdfMain {
         contentStreamBuilder.append("q\nBT\n/F1 ").append(fontSize).append(" Tf\n72 792 Td\n");
         for (String line : lines) {
             String escaped = escapePdfString(line);
-            contentStreamBuilder.append("(").append(escaped).append(") Tj\n0 -").append(lineSpacing).append(" Td\n");
+            // String converted = new String(escaped.getBytes(StandardCharsets.UTF_16), StandardCharsets.ISO_8859_1);
+            String converted = escaped;
+            contentStreamBuilder.append("(").append(converted).append(") Tj\n0 -").append(lineSpacing).append(" Td\n");
         }
         contentStreamBuilder.append("ET\nQ\n");
         String contentStreamContent = contentStreamBuilder.toString();
-        int contentStreamLength = (int) contentStreamContent.getBytes(StandardCharsets.UTF_8).length;
+        int contentStreamLength = contentStreamContent.getBytes(StandardCharsets.ISO_8859_1).length;
 
         // Prepare PDF objects
-        String catalog = 
+        String catalog =
             "1 0 obj\n"
             +"<< /Type /Catalog\n"
             + " /Pages 2 0 R\n"
             + ">>\n"
             + "endobj\n";
 
-        String pages = 
+        String pages =
             "2 0 obj\n"
             +"<< /Type /Pages\n"
             + " /Kids [3 0 R]\n"
@@ -123,7 +125,7 @@ public class TextToPdfMain {
             + ">>\n"
             + "endobj\n";
 
-        String page = 
+        String page =
             "3 0 obj\n"
             +"<< /Type /Page\n"
             + " /Parent 2 0 R\n"
@@ -133,15 +135,16 @@ public class TextToPdfMain {
             + ">>\n"
             + "endobj\n";
 
-        String font = 
+        String font =
             "5 0 obj\n"
             +"<< /Type /Font\n"
             + " /Subtype /Type1\n"
             + " /BaseFont /Helvetica\n"
+            + " /Encoding /WinAnsiEncoding\n"
             + ">>\n"
             + "endobj\n";
 
-        String contentObj = 
+        String contentObj =
             "4 0 obj\n"
             + "<< /Length " + contentStreamLength + " >>\n"
             + "stream\n"
@@ -153,37 +156,35 @@ public class TextToPdfMain {
 
         // Build PDF structure
         byte[] bufPdf;
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            bos.write("%PDF-1.4\n".getBytes(StandardCharsets.UTF_8));
+        try (ByteArrayStringOutputStream bos = new ByteArrayStringOutputStream()) {
+            bos.write("%PDF-1.4\n");
 
             long[] positions = new long[objects.size()];
             long currentPos = bos.size();
 
             for (int i = 0; i < objects.size(); i++) {
                 String objStr = objects.get(i);
-                byte[] bytes = objStr.getBytes(StandardCharsets.UTF_8);
                 positions[i] = currentPos;
-                bos.write(bytes);
-                currentPos += bytes.length;
+                bos.write(objStr);
+                currentPos += bos.size() - positions[i];
             }
 
             // Write cross-reference table and trailer
             long xrefStart = bos.size();
-            bos.write("xref\n".getBytes());
-            bos.write(String.format("%d %d\n", 0, objects.size()).getBytes());
-            bos.write(String.format("%010d %05d n\r\n", 0, 65535).getBytes());
+            bos.write("xref\n");
+            bos.write(String.format("%d %d\n", 0, objects.size()));
+            bos.write(String.format("%010d %05d n\r\n", 0, 65535));
             for (int i = 0; i < objects.size(); i++) {
-                bos.write(String.format("%010d %05d n\r\n", positions[i], 0).getBytes());
+                bos.write(String.format("%010d %05d n\r\n", positions[i], 0));
             }
 
-            bos.write("trailer\n".getBytes());
-            bos.write("<< /Size ".getBytes());
-            bos.write(String.valueOf(objects.size() + 1).getBytes());
-            bos.write("\n /Root 1 0 R\n>>\n".getBytes());
-
-            bos.write("startxref\n".getBytes());
-            bos.write(String.valueOf(xrefStart).getBytes());
-            bos.write("\n%%%%EOF\n".getBytes());
+            bos.write("trailer\n");
+            bos.write("<< /Size ");
+            bos.write(String.valueOf(objects.size() + 1));
+            bos.write("\n /Root 1 0 R\n>>\n");
+            bos.write("startxref\n");
+            bos.write(String.valueOf(xrefStart));
+            bos.write("\n%%%%EOF\n");
             bufPdf = bos.toByteArray();
         } catch (IOException e) {
             throw new RuntimeException("IO-error while building the pdf-file", e);
@@ -203,5 +204,11 @@ public class TextToPdfMain {
                 .replace("(", "\\(")
                 .replace(")", "\\)")
                 .replace("\n", "");
+    }
+
+    static class ByteArrayStringOutputStream extends ByteArrayOutputStream {
+        public void write(String text) throws IOException {
+            write(text.getBytes(StandardCharsets.ISO_8859_1));
+        }
     }
 }
