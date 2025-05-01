@@ -16,6 +16,9 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,7 +34,7 @@ public class TextToPdfMain {
      * <p>
      * Usage: java TextToPdfMain [ --fontsize <SIZE> ] input.txt output.pdf
      * <p>
-     * The --fontsize parameter allows specifying the font size in points (default: 4pt).
+     * The --fontsize parameter allows specifying the font size in points (default: 8pt).
      *
      * @param args Command-line arguments
      */
@@ -81,7 +84,6 @@ public class TextToPdfMain {
             // Save to file
             Files.write(Path.of(outputPath), bufPdf);
             System.out.format("Wrote file (%s), %d bytes%n", outputPath, new File(outputPath).length());
-
         } catch (IOException e) {
             throw new RuntimeException("IO-error while writing " + outputPath, e);
         }
@@ -100,64 +102,78 @@ public class TextToPdfMain {
         contentStreamBuilder.append("q\nBT\n/F1 ").append(fontSize).append(" Tf\n72 792 Td\n");
         for (String line : lines) {
             String escaped = escapePdfString(line);
-            // String converted = new String(escaped.getBytes(StandardCharsets.UTF_16), StandardCharsets.ISO_8859_1);
-            String converted = escaped;
-            contentStreamBuilder.append("(").append(converted).append(") Tj\n0 -").append(lineSpacing).append(" Td\n");
+            contentStreamBuilder.append("(").append(escaped).append(") Tj\n0 -").append(lineSpacing).append(" Td\n");
         }
         contentStreamBuilder.append("ET\nQ\n");
         String contentStreamContent = contentStreamBuilder.toString();
         int contentStreamLength = contentStreamContent.getBytes(StandardCharsets.ISO_8859_1).length;
 
+        // Generate CreationDate with system time
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+        String offsetStr = now.getOffset().toString(); // e.g., "+02:00"
+        offsetStr = offsetStr.replace(":", "'");
+        String datePart = DateTimeFormatter.ofPattern("yyyyMMDDHHmmss").format(now);
+        String creationDate = "D:" + datePart + offsetStr;
+
+        // Generate Creator with system property user.name
+        String creator = escapePdfString(System.getProperty("user.name"));
+
         // Prepare PDF objects
         String catalog =
-            "1 0 obj\n"
-            +"<< /Type /Catalog\n"
-            + " /Pages 2 0 R\n"
-            + ">>\n"
-            + "endobj\n";
+                "1 0 obj\n"
+                        + "<< /Type /Catalog\n"
+                        + " /Pages 2 0 R\n"
+                        + ">>\n"
+                        + "endobj\n";
 
         String pages =
-            "2 0 obj\n"
-            +"<< /Type /Pages\n"
-            + " /Kids [3 0 R]\n"
-            + " /Count 1\n"
-            + " /MediaBox [0 0 595 842]\n"
-            + ">>\n"
-            + "endobj\n";
+                "2 0 obj\n"
+                        + "<< /Type /Pages\n"
+                        + " /Kids [3 0 R]\n"
+                        + " /Count 1\n"
+                        + " /MediaBox [0 0 595 842]\n"
+                        + ">>\n"
+                        + "endobj\n";
 
         String page =
-            "3 0 obj\n"
-            +"<< /Type /Page\n"
-            + " /Parent 2 0 R\n"
-            + " /MediaBox [0 0 595 842]\n"
-            + " /Contents 4 0 R\n"
-            + " /Resources << /Font << /F1 5 0 R >> >>\n"
-            + ">>\n"
-            + "endobj\n";
-
-        String font =
-            "5 0 obj\n"
-            +"<< /Type /Font\n"
-            + " /Subtype /Type1\n"
-            + " /BaseFont /Helvetica\n"
-            + " /Encoding /WinAnsiEncoding\n"
-            + ">>\n"
-            + "endobj\n";
+                "3 0 obj\n"
+                        + "<< /Type /Page\n"
+                        + " /Parent 2 0 R\n"
+                        + " /MediaBox [0 0 595 842]\n"
+                        + " /Contents 4 0 R\n"
+                        + " /Resources << /Font << /F1 5 0 R >> >>\n"
+                        + ">>\n"
+                        + "endobj\n";
 
         String contentObj =
-            "4 0 obj\n"
-            + "<< /Length " + contentStreamLength + " >>\n"
-            + "stream\n"
-            + contentStreamContent
-            + "\nendstream\n"
-            + "endobj\n";
+                "4 0 obj\n"
+                        + "<< /Length " + contentStreamLength + " >>\n"
+                        + "stream\n"
+                        + contentStreamContent
+                        + "\nendstream\n"
+                        + "endobj\n";
 
-        List<String> objects = List.of(catalog, pages, page, contentObj, font);
+        String font =
+                "5 0 obj\n"
+                        + "<< /Type /Font\n"
+                        + " /Subtype /Type1\n"
+                        + " /BaseFont /Helvetica\n"
+                        + " /Encoding /WinAnsiEncoding\n"
+                        + ">>\n"
+                        + "endobj\n";
+
+        String infoObj =
+                "6 0 obj\n"
+                        + "<< /CreationDate (" + creationDate + ") /Creator (" + creator + ") /Producer (PluginLLM01) >>\n"
+                        + "endobj\n";
+
+        List<String> objects = List.of(catalog, pages, page, contentObj, font, infoObj);
 
         // Build PDF structure
         byte[] bufPdf;
         try (ByteArrayStringOutputStream bos = new ByteArrayStringOutputStream()) {
             bos.write("%PDF-1.4\n");
+            bos.write("%ÄÖÜµ\n");
 
             long[] positions = new long[objects.size()];
             long currentPos = bos.size();
@@ -172,8 +188,8 @@ public class TextToPdfMain {
             // Write cross-reference table and trailer
             long xrefStart = bos.size();
             bos.write("xref\n");
-            bos.write(String.format("%d %d\n", 0, objects.size()));
-            bos.write(String.format("%010d %05d n\r\n", 0, 65535));
+            bos.write(String.format("%d %d\n", 0, 1 + objects.size()));
+            bos.write(String.format("%010d %05d f\r\n", 0, 65535));
             for (int i = 0; i < objects.size(); i++) {
                 bos.write(String.format("%010d %05d n\r\n", positions[i], 0));
             }
@@ -181,10 +197,10 @@ public class TextToPdfMain {
             bos.write("trailer\n");
             bos.write("<< /Size ");
             bos.write(String.valueOf(objects.size() + 1));
-            bos.write("\n /Root 1 0 R\n>>\n");
+            bos.write("\n /Root 1 0 R /Info 6 0 R\n>>\n");
             bos.write("startxref\n");
             bos.write(String.valueOf(xrefStart));
-            bos.write("\n%%%%EOF\n");
+            bos.write("\n%%EOF\n");
             bufPdf = bos.toByteArray();
         } catch (IOException e) {
             throw new RuntimeException("IO-error while building the pdf-file", e);
