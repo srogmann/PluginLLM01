@@ -10,6 +10,11 @@ repositories {
     mavenCentral()
 }
 
+dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("org.junit.platform:junit-platform-launcher:1.13.1")
+}
+
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellij {
@@ -25,6 +30,11 @@ tasks {
         sourceCompatibility = "17"
         targetCompatibility = "17"
         options.encoding = "UTF-8"
+    }
+
+    // Configure test task for JUnit5
+    test {
+        useJUnitPlatform()
     }
 
     patchPluginXml {
