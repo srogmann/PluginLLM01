@@ -14,6 +14,8 @@ import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainForm extends JFrame {
 
@@ -68,7 +70,7 @@ public class MainForm extends JFrame {
                     ApplicationManager.getApplication().invokeLater(() -> {
                         WriteCommandAction.runWriteCommandAction(project, () -> {
                             SelectionModel selectionModel = editor.getSelectionModel();
-                            String text = response;
+                            String text = extractMarkdown(response);
                             if (selectionModel.hasSelection()) {
                                 doc.replaceString(selectionModel.getSelectionStart(), selectionModel.getSelectionEnd(), text);
                             } else {
@@ -105,6 +107,27 @@ public class MainForm extends JFrame {
                 txtAusgabe.setText(selText);
             }
         });
+    }
+
+    /**
+     * This method removes a &lt;think&gt;...&lt;/think&gt;-block at the begin
+     * of the response and extracts the content of the first markdown-block (if available).
+     * @param response response
+     * @return response without thinking, content of first markdown if present
+     */
+    static String extractMarkdown(String response) {
+        String text = response;
+        Pattern pThink = Pattern.compile("<think>.*?</think>\\s*", Pattern.DOTALL);
+        Matcher mThink = pThink.matcher(response);
+        if (mThink.find()) {
+            text = mThink.replaceFirst("");
+        }
+        Pattern pMarkdown = Pattern.compile("```[a-z0-9]+\r?\n(.*?\r?\n)```", Pattern.DOTALL);
+        Matcher mMarkdown = pMarkdown.matcher(response);
+        if (mMarkdown.find()) {
+            text = mMarkdown.group(1);
+        }
+        return text;
     }
 
     private LlmTask buildPrompt(LlmTaskType llmTaskType, int offsetCaret) {
