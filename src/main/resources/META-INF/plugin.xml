@@ -11,6 +11,7 @@
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
@@ -31,6 +32,19 @@
     <actions>
         <action id="org.rogmann.llm.copyAsMarkdown" class="org.rogmann.llm.pluginllm01.CopyAsMarkdownAction" text="Copy Classes as Markdown">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+
+        <action id="org.rogmann.llm.copySelectedTextAsMarkdown"
+                class="org.rogmann.llm.pluginllm01.CopySelectedTextAsMarkdownAction"
+                text="Copy Text as Markdown">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <!--
+            <context>
+                <in id="editor" context="editor"/>
+                <in id="selection" context="selection"/>
+                <from id="editor" context="editor"/>
+            </context>
+            -->
         </action>
     </actions>
 
